@@ -341,6 +341,7 @@ impl Parser {
                     self.expect(Token::operator(";".into()));
                     let block = self.block();
                     procedures.push((ident, block));
+                    self.expect(Token::operator(";".into()));
                 }
                 _ => break,
             }
@@ -555,6 +556,56 @@ mod tests {
 
         assert!(matches!(lexer.get_next_token(), Token::Operator { .. }));
         assert!(matches!(lexer.get_next_token(), Token::Eof));
+    }
+
+    // TODO(refactor): a very ugly test for `procedure` parsing
+    #[test]
+    fn parser_procedure() {
+        let src = "
+        procedure P1;
+        a := 1;
+        b := 1
+        .
+        "
+        .into();
+        let lexer = Lexer::new(src);
+        let mut parser = Parser::new(lexer);
+
+        let ast = parser.parse();
+        match *ast {
+            ASTNode::Program(block) => match *block {
+                ASTNode::Block {
+                    consts,
+                    vars,
+                    procedures,
+                    stmt,
+                } => {
+                    assert_eq!(consts.len(), 0);
+                    assert_eq!(vars.len(), 0);
+                    assert_eq!(procedures.len(), 1);
+                    assert_eq!(procedures[0].0, "P1");
+
+                    match &procedures[0].1.as_ref() {
+                        ASTNode::Block {
+                            consts,
+                            vars,
+                            procedures,
+                            stmt,
+                        } => {
+                            assert_eq!(consts.len(), 0);
+                            assert_eq!(vars.len(), 0);
+                            assert_eq!(procedures.len(), 0);
+                            assert!(matches!(stmt.as_ref(), ASTNode::Stmt { .. }))
+                        }
+                        _ => panic!("expect block node"),
+                    };
+
+                    assert!(matches!(stmt.as_ref(), ASTNode::Stmt { .. }));
+                }
+                _ => panic!("expect block node"),
+            },
+            _ => panic!("expect program node"),
+        }
     }
 }
 
