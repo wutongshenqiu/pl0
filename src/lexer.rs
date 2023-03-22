@@ -1,9 +1,6 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
 use crate::{Pl0Error, Result};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperatorToken {
     // Single character operator
     Equal,
@@ -26,7 +23,7 @@ pub enum OperatorToken {
     Assignment,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum KeywordToken {
     Const,
     Var,
