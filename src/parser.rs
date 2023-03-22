@@ -40,12 +40,12 @@ enum FactorASTNode {
 
 #[derive(Debug)]
 enum ASTNode {
-    Block(Box<BlockASTNode>),
-    Stmt(Box<StmtASTNode>),
-    Cond(Box<CondASTNode>),
-    Expr(Box<ExprASTNode>),
-    Term(Box<TermASTNode>),
-    Factor(Box<FactorASTNode>),
+    Block(Option<BlockASTNode>),
+    Stmt(Option<StmtASTNode>),
+    Cond(Option<CondASTNode>),
+    Expr(Option<ExprASTNode>),
+    Term(Option<TermASTNode>),
+    Factor(Option<FactorASTNode>),
 }
 
 struct Parser {
@@ -99,7 +99,7 @@ impl Parser {
         let block = self.block()?;
         self.expect(".".into())?;
 
-        Ok(ASTNode::Block(Box::new(block)))
+        Ok(ASTNode::Block(Some(block)))
     }
 
     fn block(&mut self) -> Result<BlockASTNode> {
@@ -325,7 +325,7 @@ mod tests {
         let ast = parser.parse().unwrap();
 
         match ast {
-            ASTNode::Block(box block) => {
+            ASTNode::Block(Some(block)) => {
                 let BlockASTNode {
                     consts,
                     vars,
@@ -359,7 +359,7 @@ mod tests {
         let ast = parser.parse().unwrap();
 
         match ast {
-            ASTNode::Block(box block) => {
+            ASTNode::Block(Some(block)) => {
                 let BlockASTNode {
                     consts,
                     vars,
