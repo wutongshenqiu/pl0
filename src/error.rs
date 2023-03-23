@@ -31,10 +31,8 @@ pub enum Pl0Error {
     VarUsedBeforeInitialize(String),
     #[error("symbol `{0}` is undefined")]
     UndefinedSymbol(String),
-    #[error("variable `{0}` redefined")]
-    RedefinedVar(String),
-    #[error("const `{0}` redefined")]
-    RedefinedConst(String),
+    #[error("symbol `{0}` redefined")]
+    RedefinedSymbol(String),
     #[error("invalid term")]
     InvalidTerm,
     #[error("invalid term operator")]
@@ -57,8 +55,10 @@ pub enum Pl0Error {
     InvalidIf,
     #[error("invalid while")]
     InvalidWhile,
-    #[error("empty ast node")]
+    #[error("ast node is empty")]
     EmptyASTNode,
+    #[error("stack frame is empty")]
+    EmptyStackFrame,
 }
 
 pub type Result<T> = std::result::Result<T, Pl0Error>;

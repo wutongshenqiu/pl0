@@ -300,6 +300,36 @@ mod tests {
     }
 
     #[test]
+    fn test_procedure() {
+        let src = "
+        procedure P;
+        a := 1;
+        b := 1
+        .
+        ";
+        let mut lexer = Lexer::new(src);
+
+        // Procedure P;
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Keyword(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        // a := 1;
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Number(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        // b := 1.
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Number(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Eof)));
+    }
+
+    #[test]
     fn test_invalid_token() {
         let src = "不合法的token";
         let mut lexer = Lexer::new(src);

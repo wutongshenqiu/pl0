@@ -5,16 +5,21 @@ use crate::{
     Result, StmtASTNode, TermASTNode,
 };
 
-pub struct EvalContext {
+#[derive(Debug)]
+pub struct EvalFrame {
     vars: HashMap<String, Option<i64>>,
     consts: HashMap<String, i64>,
+    // TODO(refactor): 使用引用而不是拷贝
+    // 如何确保 ASTNode 的生命周期大于 EvalFrame?
+    procs: HashMap<String, BlockASTNode>,
 }
 
-impl EvalContext {
+impl EvalFrame {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
             consts: HashMap::new(),
+            procs: HashMap::new(),
         }
     }
 
@@ -29,8 +34,16 @@ impl EvalContext {
         }
     }
 
+    pub fn get_proc(&self, name: &str) -> Result<&BlockASTNode> {
+        self.procs
+            .get(name)
+            .ok_or(Pl0Error::UndefinedSymbol(name.into()))
+    }
+
     pub fn check_symbol_exist(&self, name: &str) -> bool {
-        self.vars.contains_key(name) || self.consts.contains_key(name)
+        self.vars.contains_key(name)
+            || self.consts.contains_key(name)
+            || self.procs.contains_key(name)
     }
 
     pub fn add_var(&mut self, name: &str) -> Result<()> {
@@ -48,7 +61,7 @@ impl EvalContext {
 
     pub fn insert_var(&mut self, name: &str, value: Option<i64>) -> Result<()> {
         if self.check_symbol_exist(name) {
-            Err(Pl0Error::RedefinedVar(name.into()))
+            Err(Pl0Error::RedefinedSymbol(name.into()))
         } else {
             self.vars.insert(name.into(), value);
             Ok(())
@@ -57,11 +70,117 @@ impl EvalContext {
 
     pub fn insert_const(&mut self, name: &str, value: i64) -> Result<()> {
         if self.check_symbol_exist(name) {
-            Err(Pl0Error::RedefinedConst(name.into()))
+            Err(Pl0Error::RedefinedSymbol(name.into()))
         } else {
             self.consts.insert(name.into(), value);
             Ok(())
         }
+    }
+
+    pub fn insert_proc(&mut self, name: &str, stmt: BlockASTNode) -> Result<()> {
+        if self.check_symbol_exist(name) {
+            Err(Pl0Error::RedefinedSymbol(name.into()))
+        } else {
+            self.procs.insert(name.into(), stmt);
+            Ok(())
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct EvalContext {
+    st: Vec<EvalFrame>,
+}
+
+impl EvalContext {
+    pub fn new() -> Self {
+        Self {
+            st: vec![EvalFrame::new()],
+        }
+    }
+
+    pub fn get_value(&self, name: &str) -> Result<i64> {
+        for frame in self.st.iter().rev() {
+            match frame.get_value(name) {
+                Ok(value) => return Ok(value),
+                Err(Pl0Error::VarUsedBeforeInitialize(x)) => {
+                    return Err(Pl0Error::VarUsedBeforeInitialize(x))
+                }
+                _ => (),
+            }
+        }
+
+        Err(Pl0Error::UndefinedSymbol(name.into()))
+    }
+
+    pub fn get_proc(&self, name: &str) -> Result<&BlockASTNode> {
+        for frame in self.st.iter().rev() {
+            if let Ok(proc) = frame.get_proc(name) {
+                return Ok(proc);
+            }
+        }
+
+        Err(Pl0Error::UndefinedSymbol(name.into()))
+    }
+
+    pub fn check_symbol_exist(&self, name: &str) -> bool {
+        self.st.iter().rev().any(|x| x.check_symbol_exist(name))
+    }
+
+    pub fn add_var(&mut self, name: &str) -> Result<()> {
+        self.st
+            .last_mut()
+            .ok_or(Pl0Error::EmptyStackFrame)?
+            .add_var(name)
+    }
+
+    pub fn update_var_value(&mut self, name: &str, value: i64) -> Result<()> {
+        for frame in self.st.iter_mut().rev() {
+            if let Ok(()) = frame.update_var_value(name, value) {
+                return Ok(());
+            }
+        }
+
+        Err(Pl0Error::UndefinedSymbol(name.into()))
+    }
+
+    pub fn insert_var(&mut self, name: &str, value: Option<i64>) -> Result<()> {
+        self.st
+            .last_mut()
+            .ok_or(Pl0Error::EmptyStackFrame)?
+            .insert_var(name, value)
+    }
+
+    pub fn insert_const(&mut self, name: &str, value: i64) -> Result<()> {
+        self.st
+            .last_mut()
+            .ok_or(Pl0Error::EmptyStackFrame)?
+            .insert_const(name, value)
+    }
+
+    pub fn insert_proc(&mut self, name: &str, stmt: BlockASTNode) -> Result<()> {
+        self.st
+            .last_mut()
+            .ok_or(Pl0Error::EmptyStackFrame)?
+            .insert_proc(name, stmt)
+    }
+
+    pub fn frame(&self) -> Result<&EvalFrame> {
+        self.st.last().ok_or(Pl0Error::EmptyStackFrame)
+    }
+
+    pub fn new_frame(&mut self) {
+        self.st.push(EvalFrame::new());
+    }
+
+    pub fn pop_frame(&mut self) -> Result<()> {
+        self.st.pop().ok_or(Pl0Error::EmptyStackFrame)?;
+
+        Ok(())
+    }
+
+    pub fn depth(&self) -> usize {
+        self.st.len()
     }
 }
 
@@ -153,11 +272,19 @@ impl ASTNodeEval for StmtASTNode {
         match self {
             Self::Assign(name, expr) => {
                 let val = expr.eval(context)?.ok_or(Pl0Error::InvalidAssign)?;
-
                 context.update_var_value(name, val)?;
             }
             Self::Call(name) => {
-                unimplemented!()
+                // TODO(refactor) 使用引用而不是拷贝
+                // =========== 问题分析 =======================
+                // let proc = context.get_proc(name)?;  // context 的不可变引用
+                // proc.eval(context)?;                 // context 的可变引用
+                // context 会构造一个新的栈帧, 即 proc.eval(context)?; 的可变借用不会修改可变引用的部分
+                // ===========================================
+                let proc = context.get_proc(name).cloned()?;
+                context.new_frame();
+                proc.eval(context)?;
+                context.pop_frame()?;
             }
             Self::Begin(stmts) => {
                 for stmt in stmts.iter() {
@@ -180,7 +307,7 @@ impl ASTNodeEval for StmtASTNode {
 }
 
 impl ASTNodeEval for BlockASTNode {
-    fn eval(&self, context: &mut EvalContext) -> Result<Option<i64>> {
+    fn eval<'a>(&'a self, context: &'a mut EvalContext) -> Result<Option<i64>> {
         for (name, value) in self.consts.iter() {
             context.insert_const(name, *value)?;
         }
@@ -189,7 +316,10 @@ impl ASTNodeEval for BlockASTNode {
             context.add_var(name)?;
         }
 
-        // TODO: implement procedure
+        for (name, stmt) in self.procedures.iter() {
+            // TODO(refactor)
+            context.insert_proc(name, stmt.clone())?;
+        }
 
         self.stmt.eval(context)
     }
@@ -215,37 +345,162 @@ mod tests {
     use crate::{Lexer, Parser};
 
     #[test]
-    fn test_eval_context() {
-        let mut context = EvalContext::new();
+    fn test_eval_frame() {
+        let mut frame = EvalFrame::new();
 
+        frame.add_var("a").unwrap();
+        assert!(matches!(
+            frame.add_var("a"),
+            Err(Pl0Error::RedefinedSymbol(_))
+        ));
+        assert!(matches!(
+            frame.insert_const("a", 1),
+            Err(Pl0Error::RedefinedSymbol(_))
+        ));
+        assert!(matches!(
+            frame.get_value("a"),
+            Err(Pl0Error::VarUsedBeforeInitialize(_))
+        ));
+
+        frame.update_var_value("a", 1).unwrap();
+        assert!(matches!(frame.get_value("a"), Ok(1)));
+
+        frame.insert_var("b", Some(2)).unwrap();
+        assert!(matches!(frame.get_value("b"), Ok(2)));
+
+        frame.insert_var("c", None).unwrap();
+        assert!(matches!(
+            frame.get_value("c"),
+            Err(Pl0Error::VarUsedBeforeInitialize(_))
+        ));
+
+        frame.insert_const("d", 4).unwrap();
+        assert!(matches!(frame.get_value("d"), Ok(4)));
+
+        assert!(matches!(
+            frame.insert_proc("a", make_simple_assign_block("a", 1)),
+            Err(Pl0Error::RedefinedSymbol(_))
+        ));
+        assert!(matches!(
+            frame.get_proc("P"),
+            Err(Pl0Error::UndefinedSymbol(_))
+        ));
+        frame
+            .insert_proc("P", make_simple_assign_block("a", 1))
+            .unwrap();
+        assert!(frame.check_symbol_exist("P"));
+        assert!(matches!(frame.get_proc("P").unwrap(), BlockASTNode { .. }));
+    }
+
+    #[test]
+    fn test_eval_context_push_pop() {
+        let mut context = EvalContext::new();
+        assert_eq!(context.depth(), 1);
+        context.new_frame();
+        assert_eq!(context.depth(), 2);
+        context.pop_frame().unwrap();
+        assert_eq!(context.depth(), 1);
+        context.pop_frame().unwrap();
+        assert_eq!(context.depth(), 0);
+        assert!(matches!(
+            context.pop_frame(),
+            Err(Pl0Error::EmptyStackFrame)
+        ));
+    }
+
+    #[test]
+    fn test_eval_context_var() {
+        let mut context = EvalContext::new();
         context.add_var("a").unwrap();
-        assert!(matches!(
-            context.add_var("a"),
-            Err(Pl0Error::RedefinedVar(_))
-        ));
-        assert!(matches!(
-            context.insert_const("a", 1),
-            Err(Pl0Error::RedefinedConst(_))
-        ));
+        assert!(context.check_symbol_exist("a"));
         assert!(matches!(
             context.get_value("a"),
             Err(Pl0Error::VarUsedBeforeInitialize(_))
         ));
 
-        context.update_var_value("a", 1).unwrap();
-        assert!(matches!(context.get_value("a"), Ok(1)));
-
-        context.insert_var("b", Some(2)).unwrap();
-        assert!(matches!(context.get_value("b"), Ok(2)));
-
-        context.insert_var("c", None).unwrap();
+        context.new_frame();
+        assert!(context.check_symbol_exist("a"));
         assert!(matches!(
-            context.get_value("c"),
+            context.get_value("a"),
             Err(Pl0Error::VarUsedBeforeInitialize(_))
         ));
+        context.update_var_value("a", 1).unwrap();
+        assert!(matches!(context.get_value("a").unwrap(), 1));
 
-        context.insert_const("d", 4).unwrap();
-        assert!(matches!(context.get_value("d"), Ok(4)));
+        context.add_var("a").unwrap();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(
+            context.get_value("a"),
+            Err(Pl0Error::VarUsedBeforeInitialize(_))
+        ));
+        context.update_var_value("a", 2).unwrap();
+        assert!(matches!(context.get_value("a").unwrap(), 2));
+
+        context.pop_frame().unwrap();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(context.get_value("a").unwrap(), 1));
+
+        assert!(matches!(
+            context.insert_const("a", 100),
+            Err(Pl0Error::RedefinedSymbol(_))
+        ));
+        context.new_frame();
+        context.insert_const("a", 100).unwrap();
+        assert_eq!(context.get_value("a").unwrap(), 100);
+    }
+
+    #[test]
+    fn test_eval_context_const() {
+        let mut context = EvalContext::new();
+        context.insert_const("a", 1).unwrap();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(context.get_value("a").unwrap(), 1));
+
+        context.new_frame();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(context.get_value("a").unwrap(), 1));
+        context.insert_const("a", 2).unwrap();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(context.get_value("a").unwrap(), 2));
+
+        context.pop_frame().unwrap();
+        assert!(context.check_symbol_exist("a"));
+        assert!(matches!(context.get_value("a").unwrap(), 1));
+    }
+
+    #[test]
+    fn test_eval_context_proc() {
+        let mut context = EvalContext::new();
+
+        context
+            .insert_proc("P1", make_simple_assign_block("a", 1))
+            .unwrap();
+        assert!(context.check_symbol_exist("P1"));
+        assert!(matches!(
+            context.get_proc("P1").unwrap(),
+            BlockASTNode { .. }
+        ));
+
+        context.new_frame();
+        assert!(context.check_symbol_exist("P1"));
+        assert!(matches!(
+            context.get_proc("P1").unwrap(),
+            BlockASTNode { .. }
+        ));
+        context
+            .insert_proc("P1", make_simple_assign_block("a", 2))
+            .unwrap();
+        assert!(context.check_symbol_exist("P1"));
+        assert!(matches!(
+            context.get_proc("P1").unwrap(),
+            BlockASTNode { .. }
+        ));
+        context.pop_frame().unwrap();
+        assert!(context.check_symbol_exist("P1"));
+        assert!(matches!(
+            context.get_proc("P1").unwrap(),
+            BlockASTNode { .. }
+        ));
     }
 
     #[test]
@@ -433,6 +688,132 @@ mod tests {
         assert_eq!(context.get_value("s").unwrap(), 55);
     }
 
+    #[test]
+    fn test_proc_basic() {
+        let src = "
+        const a = 1;
+        procedure P;
+            var b;
+            b := 1;
+        call P
+        .";
+        let lexer = Lexer::new(src);
+        let parser = Parser::new(lexer);
+        let ast = parser.parse().unwrap();
+        let mut context = EvalContext::new();
+        ast.eval(&mut context).unwrap();
+
+        assert_eq!(context.get_value("a").unwrap(), 1);
+        assert!(matches!(
+            context.get_value("b"),
+            Err(Pl0Error::UndefinedSymbol(_))
+        ));
+        assert!(matches!(
+            context.get_proc("P").unwrap(),
+            BlockASTNode { .. }
+        ));
+    }
+
+    #[test]
+    fn test_proc_local() {
+        let src = "
+        const a = 1;
+        var b;
+        procedure P;
+            const a = 2;
+            var b;
+            b := 1;
+        begin
+            b := 2;
+            call P
+        end
+        .
+        ";
+        let lexer = Lexer::new(src);
+        let parser = Parser::new(lexer);
+        let ast = parser.parse().unwrap();
+        let mut context = EvalContext::new();
+        ast.eval(&mut context).unwrap();
+
+        assert_eq!(context.get_value("a").unwrap(), 1);
+        assert_eq!(context.get_value("b").unwrap(), 2);
+    }
+
+    #[test]
+    fn test_proc_overwrite_global() {
+        let src = "
+        var a;
+        procedure P;
+            a := 2;
+        begin
+            a := 1;
+            call P
+        end
+        .";
+        let lexer = Lexer::new(src);
+        let parser = Parser::new(lexer);
+        let ast = parser.parse().unwrap();
+        let mut context = EvalContext::new();
+        ast.eval(&mut context).unwrap();
+
+        assert_eq!(context.get_value("a").unwrap(), 2);
+    }
+
+    #[test]
+    fn test_nested_proc() {
+        let src = "
+        var a;
+        procedure PO;
+            procedure PI;
+                a := a + 1;
+            begin
+                call PI;
+                a := a * 2
+            end;
+        begin
+            a := 1;
+            call PO
+        end
+        .
+        ";
+        let lexer = Lexer::new(src);
+        let parser = Parser::new(lexer);
+        let ast = parser.parse().unwrap();
+        let mut context = EvalContext::new();
+        ast.eval(&mut context).unwrap();
+
+        assert_eq!(context.get_value("a").unwrap(), 4);
+    }
+
+    #[test]
+    fn test_recursive_proc() {
+        let src = "
+        var n, ans;
+        
+        procedure fact;
+            if n > 1 then 
+            begin
+                ans := ans * n;
+                n := n - 1;
+                call fact
+            end;
+        
+        begin 
+            n := 5;
+            ans := 1;
+            call fact
+        end
+        .
+        ";
+        let lexer = Lexer::new(src);
+        let parser = Parser::new(lexer);
+        let ast = parser.parse().unwrap();
+        let mut context = EvalContext::new();
+        ast.eval(&mut context).unwrap();
+
+        assert_eq!(context.get_value("ans").unwrap(), 120);
+    }
+
     fn make_simple_expr(nums: Vec<i64>) -> ExprASTNode {
         let mut expr = ExprASTNode::new();
         for num in nums.into_iter() {
@@ -453,5 +834,14 @@ mod tests {
 
     fn make_simple_assign_stmt(name: &str, value: i64) -> StmtASTNode {
         StmtASTNode::Assign(name.into(), make_simple_expr(vec![value]))
+    }
+
+    fn make_simple_assign_block(name: &str, value: i64) -> BlockASTNode {
+        BlockASTNode {
+            consts: vec![],
+            vars: vec![name.into()],
+            procedures: vec![],
+            stmt: make_simple_assign_stmt(name, value),
+        }
     }
 }

@@ -3,8 +3,8 @@
 #![feature(box_patterns)]
 #![feature(map_try_insert)]
 
+mod ast_eval;
 mod error;
-mod interpreter;
 mod lexer;
 mod parser;
 
