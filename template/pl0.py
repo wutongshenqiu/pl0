@@ -923,7 +923,9 @@ def main():
     buf = []
     ast = ps.program()
     ast.gen(buf)
-    ir_eval(buf, EvalContext({}, {}, {}))
+    for i, ir in enumerate(buf):
+        print(f"{i} {ir}")
+    # ir_eval(buf, EvalContext({}, {}, {}))
 
 if __name__ == '__main__':
     main()

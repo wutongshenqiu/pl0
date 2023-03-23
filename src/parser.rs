@@ -2,10 +2,10 @@ use crate::{KeywordToken, Lexer, OperatorToken, Pl0Error, Result, Token};
 
 #[derive(Debug, Clone)]
 pub struct BlockASTNode {
-    pub(crate) consts: Vec<(String, i64)>,
-    pub(crate) vars: Vec<String>,
-    pub(crate) procedures: Vec<(String, BlockASTNode)>,
-    pub(crate) stmt: StmtASTNode,
+    pub consts: Vec<(String, i64)>,
+    pub vars: Vec<String>,
+    pub procedures: Vec<(String, BlockASTNode)>,
+    pub stmt: StmtASTNode,
 }
 
 #[derive(Debug, Clone)]
@@ -29,8 +29,8 @@ pub type ExprASTNode = Vec<(OperatorToken, TermASTNode)>;
 
 #[derive(Debug, Clone)]
 pub struct TermASTNode {
-    pub(crate) lhs: FactorASTNode,
-    pub(crate) rhs: Vec<(OperatorToken, FactorASTNode)>,
+    pub lhs: FactorASTNode,
+    pub rhs: Vec<(OperatorToken, FactorASTNode)>,
 }
 
 #[derive(Debug, Clone)]
