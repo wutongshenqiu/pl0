@@ -1,15 +1,15 @@
 use crate::{KeywordToken, Lexer, OperatorToken, Pl0Error, Result, Token};
 
-#[derive(Debug)]
-struct BlockASTNode {
-    consts: Vec<(String, i64)>,
-    vars: Vec<String>,
-    procedures: Vec<(String, BlockASTNode)>,
-    stmt: StmtASTNode,
+#[derive(Debug, Clone)]
+pub struct BlockASTNode {
+    pub(crate) consts: Vec<(String, i64)>,
+    pub(crate) vars: Vec<String>,
+    pub(crate) procedures: Vec<(String, BlockASTNode)>,
+    pub(crate) stmt: StmtASTNode,
 }
 
-#[derive(Debug)]
-enum StmtASTNode {
+#[derive(Debug, Clone)]
+pub enum StmtASTNode {
     Assign(String, ExprASTNode),
     Call(String),
     Begin(Vec<StmtASTNode>),
@@ -17,29 +17,29 @@ enum StmtASTNode {
     While(CondASTNode, Box<StmtASTNode>),
 }
 
-#[derive(Debug)]
-enum CondASTNode {
+#[derive(Debug, Clone)]
+pub enum CondASTNode {
     OddCond(ExprASTNode),
     StdCond(ExprASTNode, OperatorToken, ExprASTNode),
 }
 
-type ExprASTNode = Vec<(OperatorToken, TermASTNode)>;
+pub type ExprASTNode = Vec<(OperatorToken, TermASTNode)>;
 
-#[derive(Debug)]
-struct TermASTNode {
-    lhs: FactorASTNode,
-    rhs: Vec<(OperatorToken, FactorASTNode)>,
+#[derive(Debug, Clone)]
+pub struct TermASTNode {
+    pub(crate) lhs: FactorASTNode,
+    pub(crate) rhs: Vec<(OperatorToken, FactorASTNode)>,
 }
 
-#[derive(Debug)]
-enum FactorASTNode {
+#[derive(Debug, Clone)]
+pub enum FactorASTNode {
     Ident(String),
     Number(i64),
     Expr(ExprASTNode),
 }
 
-#[derive(Debug)]
-enum ASTNode {
+#[derive(Debug, Clone)]
+pub enum ASTNode {
     Block(Option<BlockASTNode>),
     Stmt(Option<StmtASTNode>),
     Cond(Option<CondASTNode>),
@@ -48,7 +48,7 @@ enum ASTNode {
     Factor(Option<FactorASTNode>),
 }
 
-struct Parser {
+pub struct Parser {
     lexer: Lexer,
 }
 

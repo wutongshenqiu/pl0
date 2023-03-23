@@ -25,6 +25,40 @@ pub enum Pl0Error {
         token: Token,
         expected_token: Token,
     },
+
+    // interpreter
+    #[error("variable `{0}` used before initialize")]
+    VarUsedBeforeInitialize(String),
+    #[error("symbol `{0}` is undefined")]
+    UndefinedSymbol(String),
+    #[error("variable `{0}` redefined")]
+    RedefinedVar(String),
+    #[error("const `{0}` redefined")]
+    RedefinedConst(String),
+    #[error("invalid term")]
+    InvalidTerm,
+    #[error("invalid term operator")]
+    InvalidTermOp,
+    #[error("division by zero")]
+    DivisionByZero,
+    #[error("invalid expr")]
+    InvalidExpr,
+    #[error("invalid expr operator")]
+    InvalidExprOp,
+    #[error("invalid odd condition")]
+    InvalidOddCond,
+    #[error("invalid standard condition")]
+    InvalidStdCond,
+    #[error("invalid standard condition operator")]
+    InvalidStdCondOp,
+    #[error("invalid assignment")]
+    InvalidAssign,
+    #[error("invalid if")]
+    InvalidIf,
+    #[error("invalid while")]
+    InvalidWhile,
+    #[error("empty ast node")]
+    EmptyASTNode,
 }
 
 pub type Result<T> = std::result::Result<T, Pl0Error>;
