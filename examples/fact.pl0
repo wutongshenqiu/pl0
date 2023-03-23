@@ -1,0 +1,16 @@
+var n, ans;
+
+procedure fact;
+    if n > 1 then 
+    begin
+        ans := ans * n;
+        n := n - 1;
+        call fact
+    end;
+
+begin 
+    ?n;
+    ans := 1;
+    call fact;
+    !ans
+end.

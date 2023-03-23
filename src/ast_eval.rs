@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 
 use crate::{
     ASTNode, BlockASTNode, CondASTNode, ExprASTNode, FactorASTNode, OperatorToken, Pl0Error,
@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct EvalFrame {
+struct EvalFrame {
     vars: HashMap<String, Option<i64>>,
     consts: HashMap<String, i64>,
     // TODO(refactor): 使用引用而不是拷贝
@@ -165,10 +165,6 @@ impl EvalContext {
             .insert_proc(name, stmt)
     }
 
-    pub fn frame(&self) -> Result<&EvalFrame> {
-        self.st.last().ok_or(Pl0Error::EmptyStackFrame)
-    }
-
     pub fn new_frame(&mut self) {
         self.st.push(EvalFrame::new());
     }
@@ -181,6 +177,12 @@ impl EvalContext {
 
     pub fn depth(&self) -> usize {
         self.st.len()
+    }
+}
+
+impl Default for EvalContext {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -285,6 +287,16 @@ impl ASTNodeEval for StmtASTNode {
                 context.new_frame();
                 proc.eval(context)?;
                 context.pop_frame()?;
+            }
+            Self::Input(name) => {
+                let mut line = String::new();
+                io::stdin().read_line(&mut line)?;
+                let value: i64 = line.trim().parse()?;
+                context.update_var_value(name, value)?;
+            }
+            Self::Output(expr) => {
+                let value = expr.eval(context)?.ok_or(Pl0Error::InvalidOutput)?;
+                println!("{}", value);
             }
             Self::Begin(stmts) => {
                 for stmt in stmts.iter() {

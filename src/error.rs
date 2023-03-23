@@ -26,7 +26,7 @@ pub enum Pl0Error {
         expected_token: Token,
     },
 
-    // interpreter
+    // Interpreter
     #[error("variable `{0}` used before initialize")]
     VarUsedBeforeInitialize(String),
     #[error("symbol `{0}` is undefined")]
@@ -53,12 +53,21 @@ pub enum Pl0Error {
     InvalidAssign,
     #[error("invalid if")]
     InvalidIf,
+    #[error("invalid output")]
+    InvalidOutput,
     #[error("invalid while")]
     InvalidWhile,
+    #[error("invalid ast")]
+    InvalidAST,
     #[error("ast node is empty")]
     EmptyASTNode,
     #[error("stack frame is empty")]
     EmptyStackFrame,
+    IO(#[from] std::io::Error),
+
+    // Cli
+    #[error("only support eval or ir")]
+    UnsupportedMode,
 }
 
 pub type Result<T> = std::result::Result<T, Pl0Error>;

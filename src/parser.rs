@@ -12,6 +12,8 @@ pub struct BlockASTNode {
 pub enum StmtASTNode {
     Assign(String, ExprASTNode),
     Call(String),
+    Input(String),
+    Output(ExprASTNode),
     Begin(Vec<StmtASTNode>),
     If(CondASTNode, Box<StmtASTNode>),
     While(CondASTNode, Box<StmtASTNode>),
@@ -216,6 +218,17 @@ impl Parser {
                     Ok(StmtASTNode::While(cond, Box::new(stmt)))
                 }
                 x => Err(Pl0Error::InvalidToken(Token::Keyword(x))),
+            },
+            Token::Operator(op) => match op {
+                OperatorToken::Input => {
+                    let ident = self.next_ident()?;
+                    Ok(StmtASTNode::Input(ident))
+                }
+                OperatorToken::Output => {
+                    let expr = self.expr()?;
+                    Ok(StmtASTNode::Output(expr))
+                }
+                _ => Err(Pl0Error::InvalidToken(Token::Operator(op))),
             },
             x => Err(Pl0Error::InvalidToken(x)),
         }
