@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::Token;
 
-// TODO: 把 lexer 和 parser 的错误错分开或许更清晰, 但没找到 thiserror 中相关的用法?
+// TODO(refactor): 把 lexer 和 parser 的错误错分开或许更清晰, 但没找到 thiserror 中相关的用法?
 #[derive(Error, Debug)]
 // https://github.com/dtolnay/thiserror/issues/35
 #[error("{:#?}", self)]
@@ -64,6 +64,14 @@ pub enum Pl0Error {
     #[error("stack frame is empty")]
     EmptyStackFrame,
     IO(#[from] std::io::Error),
+    #[error("ir stack is empty")]
+    EmptyIrStack,
+    #[error("invalid ir arg")]
+    InvalidIrArg,
+    #[error("invalid ir value")]
+    InvalidIrValue,
+    #[error("pc out of boundary")]
+    PCOutOfBoundary,
 
     // Cli
     #[error("only support eval or ir")]

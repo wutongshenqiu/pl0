@@ -1,16 +1,16 @@
-use crate::{BlockASTNode, Pl0Error, Result};
+use crate::{Pl0Error, Result};
 use std::collections::HashMap;
 
 #[derive(Debug)]
-struct Frame {
+struct Frame<T> {
     vars: HashMap<String, Option<i64>>,
     consts: HashMap<String, i64>,
-    // TODO(refactor): 使用引用而不是拷贝
-    // 如何确保 ASTNode 的生命周期大于 EvalFrame?
-    procs: HashMap<String, BlockASTNode>,
+    // TODO(optimize): 使用引用而不是拷贝
+    // 如何确保 T(例如 BlockASTNode) 的生命周期大于 EvalFrame?
+    procs: HashMap<String, T>,
 }
 
-impl Frame {
+impl<T> Frame<T> {
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
@@ -30,7 +30,7 @@ impl Frame {
         }
     }
 
-    pub fn get_proc(&self, name: &str) -> Result<&BlockASTNode> {
+    pub fn get_proc(&self, name: &str) -> Result<&T> {
         self.procs
             .get(name)
             .ok_or(Pl0Error::UndefinedSymbol(name.into()))
@@ -73,22 +73,22 @@ impl Frame {
         }
     }
 
-    pub fn insert_proc(&mut self, name: &str, stmt: BlockASTNode) -> Result<()> {
+    pub fn insert_proc(&mut self, name: &str, proc: T) -> Result<()> {
         if self.check_symbol_exist(name) {
             Err(Pl0Error::RedefinedSymbol(name.into()))
         } else {
-            self.procs.insert(name.into(), stmt);
+            self.procs.insert(name.into(), proc);
             Ok(())
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Context {
-    st: Vec<Frame>,
+pub struct Context<T> {
+    st: Vec<Frame<T>>,
 }
 
-impl Context {
+impl<T> Context<T> {
     pub fn new() -> Self {
         Self {
             st: vec![Frame::new()],
@@ -109,7 +109,7 @@ impl Context {
         Err(Pl0Error::UndefinedSymbol(name.into()))
     }
 
-    pub fn get_proc(&self, name: &str) -> Result<&BlockASTNode> {
+    pub fn get_proc(&self, name: &str) -> Result<&T> {
         for frame in self.st.iter().rev() {
             if let Ok(proc) = frame.get_proc(name) {
                 return Ok(proc);
@@ -154,11 +154,11 @@ impl Context {
             .insert_const(name, value)
     }
 
-    pub fn insert_proc(&mut self, name: &str, stmt: BlockASTNode) -> Result<()> {
+    pub fn insert_proc(&mut self, name: &str, proc: T) -> Result<()> {
         self.st
             .last_mut()
             .ok_or(Pl0Error::EmptyStackFrame)?
-            .insert_proc(name, stmt)
+            .insert_proc(name, proc)
     }
 
     pub fn new_frame(&mut self) {
@@ -176,7 +176,7 @@ impl Context {
     }
 }
 
-impl Default for Context {
+impl<T> Default for Context<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -187,6 +187,7 @@ mod tests {
     use super::*;
     // TODO(refactor): An ugly import
     use crate::ast_eval::tests::make_simple_assign_block;
+    use crate::BlockASTNode;
 
     #[test]
     fn test_frame() {
@@ -238,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_context_push_pop() {
-        let mut context = Context::new();
+        let mut context: Context<i64> = Context::new();
         assert_eq!(context.depth(), 1);
         context.new_frame();
         assert_eq!(context.depth(), 2);
@@ -254,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_context_var() {
-        let mut context = Context::new();
+        let mut context: Context<i64> = Context::new();
         context.add_var("a").unwrap();
         assert!(context.check_symbol_exist("a"));
         assert!(matches!(
@@ -295,7 +296,7 @@ mod tests {
 
     #[test]
     fn test_context_const() {
-        let mut context = Context::new();
+        let mut context: Context<i64> = Context::new();
         context.insert_const("a", 1).unwrap();
         assert!(context.check_symbol_exist("a"));
         assert!(matches!(context.get_value("a").unwrap(), 1));

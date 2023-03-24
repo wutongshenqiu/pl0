@@ -1,7 +1,9 @@
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
-use pl0::{ASTNodeEval, ASTNodeGen, Context, Lexer, Parser as Pl0Parser, Pl0Error, Result};
+use pl0::{
+    ASTNodeEval, ASTNodeGen, Context, Intepreter, Lexer, Parser as Pl0Parser, Pl0Error, Result,
+};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -26,10 +28,10 @@ fn main() -> Result<()> {
     let lexer = Lexer::new(&src);
     let parser = Pl0Parser::new(lexer);
     let ast = parser.parse()?;
-    let mut context = Context::default();
 
     match args.mode.as_str() {
         "eval" => {
+            let mut context = Context::default();
             if ast.eval(&mut context)?.is_some() {
                 Err(Pl0Error::InvalidAST)
             } else {
@@ -44,7 +46,8 @@ fn main() -> Result<()> {
                     println!("{}: {:?}", i, ir);
                 }
             }
-            Ok(())
+            let mut context = Context::default();
+            Intepreter::ir_eval(&buf, &mut context)
         }
         _ => Err(Pl0Error::UnsupportedMode),
     }

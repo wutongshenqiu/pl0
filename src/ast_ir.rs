@@ -3,8 +3,8 @@ use crate::{
     Result, StmtASTNode, TermASTNode,
 };
 
-#[derive(Debug)]
-enum IrOpCode {
+#[derive(Debug, Clone)]
+pub enum IrOpCode {
     Add,
     Sub,
     Neg,
@@ -31,8 +31,8 @@ enum IrOpCode {
     Halt,
 }
 
-#[derive(Debug)]
-enum IrArg {
+#[derive(Debug, Clone)]
+pub enum IrArg {
     Ident(String),
     Number(i64),
 }
@@ -61,8 +61,8 @@ impl From<String> for IrArg {
     }
 }
 
-#[derive(Debug)]
-enum IrValue {
+#[derive(Debug, Clone)]
+pub enum IrValue {
     Number(i64),
     Irs(Vec<Ir>),
 }
@@ -85,11 +85,11 @@ impl From<Vec<Ir>> for IrValue {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ir {
-    op: IrOpCode,
-    arg: Option<IrArg>,
-    value: Option<IrValue>,
+    pub op: IrOpCode,
+    pub arg: Option<IrArg>,
+    pub value: Option<IrValue>,
 }
 
 impl Default for Ir {
@@ -117,10 +117,6 @@ impl ASTNodeGen for ASTNode {
             Self::Factor(Some(factor)) => factor.gen(buf)?,
             _ => return Err(Pl0Error::EmptyASTNode),
         }
-        buf.push(Ir {
-            op: IrOpCode::Halt,
-            ..Default::default()
-        });
 
         Ok(())
     }
@@ -154,7 +150,13 @@ impl ASTNodeGen for BlockASTNode {
             });
         }
 
-        self.stmt.gen(buf)
+        self.stmt.gen(buf)?;
+
+        buf.push(Ir {
+            op: IrOpCode::Halt,
+            ..Default::default()
+        });
+        Ok(())
     }
 }
 
@@ -289,7 +291,7 @@ impl ASTNodeGen for CondASTNode {
 
 impl ASTNodeGen for ExprASTNode {
     fn gen(&self, buf: &mut Vec<Ir>) -> Result<()> {
-        // TODO(optimize): add 0 at first to keep consistency, but may produce redundant ir
+        // TODO(optimize): add 0 at first to keep consistency, but may produce useless ir
         // buf.push(Ir { op: IrOpCode::LoadLit, arg: Some(0.into()), value: None });
 
         // for (op, term) in self.iter() {
@@ -301,7 +303,7 @@ impl ASTNodeGen for ExprASTNode {
         //     }
         // }
 
-        // TODO(refactor): time optimized but ugly
+        // TODO(refactor): a little ugly
         let (op, lhs) = &self[0];
         lhs.gen(buf)?;
         match op {

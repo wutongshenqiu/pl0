@@ -163,7 +163,7 @@ impl Parser {
                     procedures.push((ident, block));
                     self.expect(";".into())?;
                 }
-                x => break,
+                _ => break,
             }
         }
 
@@ -235,7 +235,7 @@ impl Parser {
     }
 
     fn cond(&mut self) -> Result<CondASTNode> {
-        if let Token::Keyword(kw) = self.lexer.peek_next_token()? {
+        if let Token::Keyword(_) = self.lexer.peek_next_token()? {
             self.expect("odd".into())?;
             let expr = self.expr()?;
             Ok(CondASTNode::OddCond(expr))
@@ -350,6 +350,7 @@ mod tests {
                 assert_eq!(vars.len(), 0);
                 assert_eq!(procedures.len(), 1);
                 assert_eq!(procedures[0].0, "P1");
+                assert!(matches!(stmt, StmtASTNode::Assign { .. }));
             }
             _ => panic!("expect block"),
         }

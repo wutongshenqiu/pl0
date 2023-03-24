@@ -5,12 +5,14 @@ use crate::{
     Pl0Error, Result, StmtASTNode, TermASTNode,
 };
 
+type ContextBlockAST = Context<BlockASTNode>;
+
 pub trait ASTNodeEval {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>>;
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>>;
 }
 
 impl ASTNodeEval for FactorASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         match self {
             Self::Ident(name) => Ok(Some(context.get_value(name)?)),
             Self::Number(number) => Ok(Some(number).cloned()),
@@ -20,7 +22,7 @@ impl ASTNodeEval for FactorASTNode {
 }
 
 impl ASTNodeEval for TermASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         let mut ret = self.lhs.eval(context)?.ok_or(Pl0Error::InvalidTerm)?;
 
         for (op, rhs) in self.rhs.iter() {
@@ -44,7 +46,7 @@ impl ASTNodeEval for TermASTNode {
 }
 
 impl ASTNodeEval for ExprASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         let mut ret = 0;
 
         for (op, term) in self.iter() {
@@ -62,7 +64,7 @@ impl ASTNodeEval for ExprASTNode {
 }
 
 impl ASTNodeEval for CondASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         match self {
             Self::OddCond(expr) => {
                 let ret = expr.eval(context)?.ok_or(Pl0Error::InvalidOddCond)?;
@@ -89,14 +91,14 @@ impl ASTNodeEval for CondASTNode {
 }
 
 impl ASTNodeEval for StmtASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         match self {
             Self::Assign(name, expr) => {
                 let val = expr.eval(context)?.ok_or(Pl0Error::InvalidAssign)?;
                 context.update_var_value(name, val)?;
             }
             Self::Call(name) => {
-                // TODO(refactor) 使用引用而不是拷贝
+                // TODO(optimize): 使用引用而不是拷贝
                 // =========== 问题分析 =======================
                 // let proc = context.get_proc(name)?;  // context 的不可变引用
                 // proc.eval(context)?;                 // context 的可变引用
@@ -138,7 +140,7 @@ impl ASTNodeEval for StmtASTNode {
 }
 
 impl ASTNodeEval for BlockASTNode {
-    fn eval<'a>(&'a self, context: &'a mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         for (name, value) in self.consts.iter() {
             context.insert_const(name, *value)?;
         }
@@ -148,7 +150,7 @@ impl ASTNodeEval for BlockASTNode {
         }
 
         for (name, stmt) in self.procedures.iter() {
-            // TODO(refactor)
+            // TODO(optimize): 引用
             context.insert_proc(name, stmt.clone())?;
         }
 
@@ -157,7 +159,7 @@ impl ASTNodeEval for BlockASTNode {
 }
 
 impl ASTNodeEval for ASTNode {
-    fn eval(&self, context: &mut Context) -> Result<Option<i64>> {
+    fn eval(&self, context: &mut ContextBlockAST) -> Result<Option<i64>> {
         match self {
             Self::Block(Some(block)) => block.eval(context),
             Self::Stmt(Some(stmt)) => stmt.eval(context),
