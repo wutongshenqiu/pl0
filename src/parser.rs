@@ -59,6 +59,13 @@ impl Parser {
         Self { lexer }
     }
 
+    pub fn parse_str(src: &str) -> Result<ASTNode> {
+        Self {
+            lexer: Lexer::new(src),
+        }
+        .parse()
+    }
+
     pub fn parse(mut self) -> Result<ASTNode> {
         self.program()
     }
@@ -332,10 +339,7 @@ mod tests {
         a := 1;
         b := 1
         .";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
 
         match ast {
             ASTNode::Block(Some(block)) => {
@@ -367,10 +371,7 @@ mod tests {
                 s := s + i * i
             end
         end.";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
 
         match ast {
             ASTNode::Block(Some(block)) => {

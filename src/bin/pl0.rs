@@ -1,9 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use clap::Parser;
-use pl0::{
-    ASTNodeEval, ASTNodeGen, Context, Intepreter, Lexer, Parser as Pl0Parser, Pl0Error, Result,
-};
+use pl0::{ASTNodeEval, ASTNodeGen, Context, Intepreter, Parser as Pl0Parser, Pl0Error, Result};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -24,10 +22,7 @@ struct Pl0Args {
 fn main() -> Result<()> {
     let args = Pl0Args::parse();
     let src = fs::read_to_string(args.source)?;
-
-    let lexer = Lexer::new(&src);
-    let parser = Pl0Parser::new(lexer);
-    let ast = parser.parse()?;
+    let ast = Pl0Parser::parse_str(&src).unwrap();
 
     match args.mode.as_str() {
         "eval" => {

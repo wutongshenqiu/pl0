@@ -175,7 +175,7 @@ impl ASTNodeEval for ASTNode {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{Lexer, Parser};
+    use crate::Parser;
 
     #[test]
     fn test_expr_eval() {
@@ -352,9 +352,7 @@ pub mod tests {
                 s := s + i * i
             end
         end.";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 
@@ -371,9 +369,7 @@ pub mod tests {
             b := 1;
         call P
         .";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 
@@ -403,9 +399,7 @@ pub mod tests {
         end
         .
         ";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 
@@ -424,9 +418,7 @@ pub mod tests {
             call P
         end
         .";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 
@@ -450,9 +442,7 @@ pub mod tests {
         end
         .
         ";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 
@@ -479,9 +469,7 @@ pub mod tests {
         end
         .
         ";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
         let mut context = Context::new();
         ast.eval(&mut context).unwrap();
 

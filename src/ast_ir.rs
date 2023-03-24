@@ -376,38 +376,3 @@ impl ASTNodeGen for FactorASTNode {
         Ok(())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{Lexer, Parser};
-
-    #[test]
-    fn test_basic() {
-        let src = "
-        var a, b, n, t;
-        begin
-            ?n;
-            a := 0;
-            b := 1;
-            while n > 0 do
-            begin
-                !b;
-                n := n - 1;
-                t := a + b;
-                a := b;
-                b := t
-            end
-        end.";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-        let ast = parser.parse().unwrap();
-
-        let mut buf = Vec::new();
-        ast.gen(&mut buf).unwrap();
-
-        for (i, ir) in buf.iter().enumerate() {
-            println!("{} {:?}", i, ir);
-        }
-    }
-}
