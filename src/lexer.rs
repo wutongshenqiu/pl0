@@ -2,25 +2,27 @@ use crate::{Pl0Error, Result};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum OperatorToken {
-    // Single character operator
-    Equal,
-    Hashtag,
-    Plus,
-    Minus,
-    Mul,
-    Div,
-    Comma,
-    Semi,
-    Dot,
-    LPar,
-    RPar,
-    Less,
-    Greater,
+    // Single
+    Equal,   // =
+    Hashtag, // #
+    Plus,    // +
+    Minus,   // -
+    Mul,     // *
+    Div,     // /
+    Comma,   // ,
+    Semi,    // ;
+    Dot,     // .
+    LPar,    // (
+    RPar,    // )
+    Less,    // <
+    Greater, // >
+    Input,   // ?
+    Output,  // !
 
-    // double characters operator
-    LEqual,
-    GEqual,
-    Assignment,
+    // double
+    LEqual,     // <=
+    GEqual,     // >=
+    Assignment, // :=
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -64,6 +66,8 @@ impl From<&str> for Token {
             ")" => Token::Operator(OperatorToken::RPar),
             ">" => Token::Operator(OperatorToken::Greater),
             "<" => Token::Operator(OperatorToken::Less),
+            "?" => Token::Operator(OperatorToken::Input),
+            "!" => Token::Operator(OperatorToken::Output),
             "<=" => Token::Operator(OperatorToken::LEqual),
             ">=" => Token::Operator(OperatorToken::GEqual),
             ":=" => Token::Operator(OperatorToken::Assignment),
@@ -122,6 +126,8 @@ fn is_op_start(c: char) -> bool {
         || c == ':'
         || c == '>'
         || c == '<'
+        || c == '?'
+        || c == '!'
 }
 
 pub struct Lexer {
@@ -278,7 +284,8 @@ mod tests {
     #[test]
     fn test_op() {
         for src in vec![
-            "=", "#", "+", "-", "*", "/", ",", ";", ".", "(", ")", ">", "<", ">=", "<=", ":=",
+            "=", "#", "+", "-", "*", "/", ",", ";", ".", "(", ")", ">", "<", "?", "!", ">=", "<=",
+            ":=",
         ] {
             let mut lexer = Lexer::new(src);
             assert!(matches!(lexer.op(), Ok(Token::Operator(_))))
@@ -297,6 +304,36 @@ mod tests {
             lexer.op(),
             Err(Pl0Error::UnexpectedChar { ch: '*', pos: 1 })
         ));
+    }
+
+    #[test]
+    fn test_procedure() {
+        let src = "
+        procedure P;
+        a := 1;
+        b := 1
+        .
+        ";
+        let mut lexer = Lexer::new(src);
+
+        // Procedure P;
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Keyword(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        // a := 1;
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Number(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        // b := 1.
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Ident(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Number(_))));
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Operator(_))));
+
+        assert!(matches!(lexer.get_next_token(), Ok(Token::Eof)));
     }
 
     #[test]

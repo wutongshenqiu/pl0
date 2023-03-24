@@ -1,45 +1,47 @@
 use crate::{KeywordToken, Lexer, OperatorToken, Pl0Error, Result, Token};
 
-#[derive(Debug)]
-struct BlockASTNode {
-    consts: Vec<(String, i64)>,
-    vars: Vec<String>,
-    procedures: Vec<(String, BlockASTNode)>,
-    stmt: StmtASTNode,
+#[derive(Debug, Clone)]
+pub struct BlockASTNode {
+    pub consts: Vec<(String, i64)>,
+    pub vars: Vec<String>,
+    pub procedures: Vec<(String, BlockASTNode)>,
+    pub stmt: StmtASTNode,
 }
 
-#[derive(Debug)]
-enum StmtASTNode {
+#[derive(Debug, Clone)]
+pub enum StmtASTNode {
     Assign(String, ExprASTNode),
     Call(String),
+    Input(String),
+    Output(ExprASTNode),
     Begin(Vec<StmtASTNode>),
     If(CondASTNode, Box<StmtASTNode>),
     While(CondASTNode, Box<StmtASTNode>),
 }
 
-#[derive(Debug)]
-enum CondASTNode {
+#[derive(Debug, Clone)]
+pub enum CondASTNode {
     OddCond(ExprASTNode),
     StdCond(ExprASTNode, OperatorToken, ExprASTNode),
 }
 
-type ExprASTNode = Vec<(OperatorToken, TermASTNode)>;
+pub type ExprASTNode = Vec<(OperatorToken, TermASTNode)>;
 
-#[derive(Debug)]
-struct TermASTNode {
-    lhs: FactorASTNode,
-    rhs: Vec<(OperatorToken, FactorASTNode)>,
+#[derive(Debug, Clone)]
+pub struct TermASTNode {
+    pub lhs: FactorASTNode,
+    pub rhs: Vec<(OperatorToken, FactorASTNode)>,
 }
 
-#[derive(Debug)]
-enum FactorASTNode {
+#[derive(Debug, Clone)]
+pub enum FactorASTNode {
     Ident(String),
     Number(i64),
     Expr(ExprASTNode),
 }
 
-#[derive(Debug)]
-enum ASTNode {
+#[derive(Debug, Clone)]
+pub enum ASTNode {
     Block(Option<BlockASTNode>),
     Stmt(Option<StmtASTNode>),
     Cond(Option<CondASTNode>),
@@ -48,13 +50,20 @@ enum ASTNode {
     Factor(Option<FactorASTNode>),
 }
 
-struct Parser {
+pub struct Parser {
     lexer: Lexer,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         Self { lexer }
+    }
+
+    pub fn parse_str(src: &str) -> Result<ASTNode> {
+        Self {
+            lexer: Lexer::new(src),
+        }
+        .parse()
     }
 
     pub fn parse(mut self) -> Result<ASTNode> {
@@ -161,7 +170,7 @@ impl Parser {
                     procedures.push((ident, block));
                     self.expect(";".into())?;
                 }
-                x => break,
+                _ => break,
             }
         }
 
@@ -217,12 +226,23 @@ impl Parser {
                 }
                 x => Err(Pl0Error::InvalidToken(Token::Keyword(x))),
             },
+            Token::Operator(op) => match op {
+                OperatorToken::Input => {
+                    let ident = self.next_ident()?;
+                    Ok(StmtASTNode::Input(ident))
+                }
+                OperatorToken::Output => {
+                    let expr = self.expr()?;
+                    Ok(StmtASTNode::Output(expr))
+                }
+                _ => Err(Pl0Error::InvalidToken(Token::Operator(op))),
+            },
             x => Err(Pl0Error::InvalidToken(x)),
         }
     }
 
     fn cond(&mut self) -> Result<CondASTNode> {
-        if let Token::Keyword(kw) = self.lexer.peek_next_token()? {
+        if let Token::Keyword(_) = self.lexer.peek_next_token()? {
             self.expect("odd".into())?;
             let expr = self.expr()?;
             Ok(CondASTNode::OddCond(expr))
@@ -319,10 +339,7 @@ mod tests {
         a := 1;
         b := 1
         .";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
 
         match ast {
             ASTNode::Block(Some(block)) => {
@@ -337,6 +354,7 @@ mod tests {
                 assert_eq!(vars.len(), 0);
                 assert_eq!(procedures.len(), 1);
                 assert_eq!(procedures[0].0, "P1");
+                assert!(matches!(stmt, StmtASTNode::Assign { .. }));
             }
             _ => panic!("expect block"),
         }
@@ -353,10 +371,7 @@ mod tests {
                 s := s + i * i
             end
         end.";
-        let lexer = Lexer::new(src);
-        let parser = Parser::new(lexer);
-
-        let ast = parser.parse().unwrap();
+        let ast = Parser::parse_str(src).unwrap();
 
         match ast {
             ASTNode::Block(Some(block)) => {

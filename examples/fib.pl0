@@ -1,0 +1,14 @@
+var a, b, n, t;
+begin
+    ?n;
+    a := 0;
+    b := 1;
+    while n > 0 do
+    begin
+        !b;
+        n := n - 1;
+        t := a + b;
+        a := b;
+        b := t
+    end
+end.
